@@ -1,0 +1,17 @@
+{
+  "name": "@grocery-price-finder/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for Grocery Price Finder",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
