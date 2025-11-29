@@ -24,12 +24,15 @@ export interface ItemPrice {
   itemName: string;
   price: number | null; // null if not available
   currency: string;
+  isMockData?: boolean; // indicates if this came from mock provider
 }
 
 // Store with pricing information
 export interface StoreWithPrices extends Store {
   items: ItemPrice[];
   total: number | null; // null if prices unavailable
+  usedMockData: boolean; // true if any prices are mocked
+  mockDataReason?: string; // why mocks were used (e.g., "Scraper failed")
 }
 
 // API Request/Response types
