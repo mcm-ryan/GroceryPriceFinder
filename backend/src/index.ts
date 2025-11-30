@@ -1,11 +1,9 @@
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import type { CompareRequest, CompareResponse, ErrorResponse } from '@grocery-price-finder/types';
 import { storeDiscoveryService } from './services/storeDiscoveryService';
 import { aggregationService } from './services/aggregationService';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

@@ -1,12 +1,12 @@
 import type { Store } from '@grocery-price-finder/types';
 import { cacheService } from './cacheService';
-import { overpassClient } from './overpassClient';
-import type { OverpassElementUnion } from '../types/overpass.types';
+import { geoapifyClient } from './geoapifyClient';
+import type { GeoapifyFeature } from '../types/geoapify.types';
 
 /**
  * Store Discovery Service
  *
- * Finds grocery stores near a given location using OpenStreetMap Overpass API.
+ * Finds grocery stores near a given location using Geoapify Places API.
  * Implements caching to reduce API calls and improve performance.
  */
 class StoreDiscoveryService {
@@ -32,31 +32,32 @@ class StoreDiscoveryService {
       return cached;
     }
 
-    // Query OpenStreetMap Overpass API
+    // Query Geoapify Places API
     try {
-      const response = await overpassClient.findStores({
+      if (!geoapifyClient.isConfigured()) {
+        throw new Error('Geoapify API key not configured');
+      }
+
+      const response = await geoapifyClient.findStores({
         latitude,
         longitude,
         radius,
-        timeout: 25, // seconds
+        categories: ['commercial.supermarket'],
+        limit: 50,
         storeNames: this.TARGET_STORE_NAMES,
       });
 
-      // Convert OSM elements to Store objects
-      const stores = this.convertOSMElementsToStores(
-        response.elements,
-        latitude,
-        longitude
-      );
+      // Convert Geoapify features to Store objects
+      const stores = this.convertGeoapifyFeaturesToStores(response.features);
 
-      console.log(`Found ${stores.length} stores via OpenStreetMap`);
+      console.log(`Found ${stores.length} stores via Geoapify`);
 
       // Cache results
       cacheService.setStores(latitude, longitude, radius, stores);
 
       return stores;
     } catch (error) {
-      console.error('Error querying Overpass API:', error);
+      console.error('Error querying Geoapify API:', error);
 
       // Fallback to mock data on error
       console.log('Falling back to mock store data');
@@ -68,46 +69,35 @@ class StoreDiscoveryService {
   }
 
   /**
-   * Convert OpenStreetMap elements to Store objects
+   * Convert Geoapify features to Store objects
    */
-  private convertOSMElementsToStores(
-    elements: OverpassElementUnion[],
-    userLat: number,
-    userLon: number
-  ): Store[] {
+  private convertGeoapifyFeaturesToStores(features: GeoapifyFeature[]): Store[] {
     const stores: Store[] = [];
 
-    for (const element of elements) {
-      // Get coordinates
-      const coords = overpassClient.getElementCoordinates(element);
-      if (!coords) {
-        console.warn(`Element ${element.id} has no coordinates, skipping`);
-        continue;
-      }
-
+    for (const feature of features) {
       // Get store name
-      const name = overpassClient.getStoreName(element);
+      const name = geoapifyClient.getStoreName(feature);
       if (!name) {
-        console.warn(`Element ${element.id} has no name, skipping`);
+        console.warn(`Feature ${feature.properties.place_id} has no name, skipping`);
         continue;
       }
 
-      // Calculate distance
-      const distance = this.calculateDistance(userLat, userLon, coords.lat, coords.lon);
+      // Get distance (Geoapify already calculates it!)
+      const distance = geoapifyClient.getDistance(feature);
 
       // Build store object
       const store: Store = {
-        id: `osm-${element.type}-${element.id}`,
+        id: `geoapify-${feature.properties.place_id}`,
         name,
-        address: overpassClient.getStoreAddress(element),
-        distance: Math.round(distance),
-        websiteUrl: overpassClient.getWebsiteUrl(element, name),
+        address: geoapifyClient.getStoreAddress(feature),
+        distance: distance ? Math.round(distance) : undefined,
+        websiteUrl: geoapifyClient.getWebsiteUrl(feature, name),
       };
 
       stores.push(store);
     }
 
-    // Sort by distance (closest first)
+    // Sort by distance (closest first) - Geoapify may already sort, but ensure it
     stores.sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
     // Limit to reasonable number (avoid overwhelming user)
