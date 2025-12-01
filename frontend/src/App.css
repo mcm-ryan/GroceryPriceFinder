@@ -43,11 +43,14 @@ header p {
 
 /* Main content */
 main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   flex: 1;
-  max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0.5rem;
 }
 
 /* Input sections */
@@ -57,6 +60,7 @@ main {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 1.5rem;
+  width: 50%;
 }
 
 .input-section h2 {
@@ -71,6 +75,49 @@ main {
   margin-bottom: 0.75rem;
 }
 
+/* Location mode selector */
+.location-mode-selector {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.location-mode-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #555;
+}
+
+.location-mode-selector input[type="radio"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.location-mode-selector label:hover span {
+  color: #667eea;
+}
+
+/* Location display */
+.location-display {
+  flex: 1;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.location-display strong {
+  color: #333;
+  font-size: 1.1rem;
+}
+
 /* Location inputs */
 .location-inputs {
   display: flex;
@@ -80,8 +127,7 @@ main {
 }
 
 .input-group {
-  flex: 1;
-  min-width: 150px;
+  width: 20%;
 }
 
 .input-group label {

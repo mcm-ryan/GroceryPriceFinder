@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import type { GroceryItem, StoreWithPrices } from '@grocery-price-finder/types';
 import { compareStores } from './api/compare';
+import { reverseGeocode, geocodeZipCode } from './api/geocoding';
 import './App.css';
+
+type LocationMode = 'precise' | 'zipcode';
 
 function App() {
   // State
+  const [locationMode, setLocationMode] = useState<LocationMode>('precise');
   const [latitude, setLatitude] = useState<string>('');
   const [longitude, setLongitude] = useState<string>('');
+  const [locationDisplay, setLocationDisplay] = useState<string>(''); // City, State ZIP
+  const [zipCode, setZipCode] = useState<string>('');
   const [groceryList, setGroceryList] = useState<string>('milk\neggs\nbread');
   const [results, setResults] = useState<StoreWithPrices[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,7 +20,7 @@ function App() {
   const [gettingLocation, setGettingLocation] = useState(false);
 
   // Get user's geolocation
-  const handleGetLocation = () => {
+  const handleGetLocation = async () => {
     setGettingLocation(true);
     setError(null);
 
@@ -25,9 +31,23 @@ function App() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude.toFixed(4));
-        setLongitude(position.coords.longitude.toFixed(4));
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        setLatitude(lat.toFixed(4));
+        setLongitude(lng.toFixed(4));
+
+        // Reverse geocode to get city, state, zip
+        try {
+          const address = await reverseGeocode(lat, lng);
+          setLocationDisplay(address.formatted);
+        } catch (err) {
+          // If reverse geocoding fails, fall back to showing coordinates
+          setLocationDisplay(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          console.error('Reverse geocoding failed:', err);
+        }
+
         setGettingLocation(false);
       },
       (error) => {
@@ -60,18 +80,43 @@ function App() {
     setError(null);
     setResults([]);
 
-    // Validate inputs
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
+    let lat: number;
+    let lng: number;
 
-    if (isNaN(lat) || isNaN(lng)) {
-      setError('Please enter valid coordinates or use the location button');
-      return;
+    // Get coordinates based on location mode
+    if (locationMode === 'precise') {
+      // Use precise coordinates
+      lat = parseFloat(latitude);
+      lng = parseFloat(longitude);
+
+      if (isNaN(lat) || isNaN(lng)) {
+        setError('Please use the location button to get your precise location');
+        return;
+      }
+    } else {
+      // Use zip code - need to geocode it first
+      if (!zipCode.trim()) {
+        setError('Please enter a zip code');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const coords = await geocodeZipCode(zipCode);
+        lat = coords.latitude;
+        lng = coords.longitude;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to geocode zip code');
+        setLoading(false);
+        return;
+      }
     }
 
     const items = parseGroceryList();
     if (items.length === 0) {
       setError('Please enter at least one grocery item');
+      setLoading(false);
       return;
     }
 
@@ -116,35 +161,64 @@ function App() {
         {/* Location Input */}
         <section className="input-section">
           <h2>Your Location</h2>
-          <div className="location-inputs">
-            <div className="input-group">
-              <label>Latitude:</label>
+
+          {/* Location Mode Selector */}
+          <div className="location-mode-selector">
+            <label>
               <input
-                type="text"
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-                placeholder="40.7128"
-                disabled={gettingLocation}
+                type="radio"
+                name="locationMode"
+                value="precise"
+                checked={locationMode === 'precise'}
+                onChange={() => setLocationMode('precise')}
               />
-            </div>
-            <div className="input-group">
-              <label>Longitude:</label>
+              <span>Use My Precise Location</span>
+            </label>
+            <label>
               <input
-                type="text"
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                placeholder="-74.0060"
-                disabled={gettingLocation}
+                type="radio"
+                name="locationMode"
+                value="zipcode"
+                checked={locationMode === 'zipcode'}
+                onChange={() => setLocationMode('zipcode')}
               />
-            </div>
-            <button
-              onClick={handleGetLocation}
-              disabled={gettingLocation}
-              className="location-btn"
-            >
-              {gettingLocation ? 'Getting location...' : '📍 Use My Location'}
-            </button>
+              <span>Enter Zip Code</span>
+            </label>
           </div>
+
+          {/* Precise Location Mode */}
+          {locationMode === 'precise' && (
+            <div className="location-inputs">
+              {locationDisplay ?? (
+                <div className="location-display">
+                  <strong>{locationDisplay}</strong>
+                </div>
+              )}
+              <button
+                onClick={handleGetLocation}
+                disabled={gettingLocation}
+                className="location-btn"
+              >
+                {gettingLocation ? 'Getting location...' : '📍 Use My Location'}
+              </button>
+            </div>
+          )}
+
+          {/* Zip Code Mode */}
+          {locationMode === 'zipcode' && (
+            <div className="location-inputs">
+              <div className="input-group">
+                <label>Zip Code:</label>
+                <input
+                  type="text"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value)}
+                  placeholder="10001"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Grocery List Input */}

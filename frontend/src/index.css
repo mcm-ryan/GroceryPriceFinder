@@ -13,6 +13,11 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Ensure root element can fill the viewport so app layout can stretch */
+html, body, #root {
+  width: 100%;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
