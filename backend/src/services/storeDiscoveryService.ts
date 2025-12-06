@@ -52,6 +52,14 @@ class StoreDiscoveryService {
 
       console.log(`Found ${stores.length} stores via Geoapify`);
 
+      // If no stores found after filtering, fall back to mock data
+      if (stores.length === 0) {
+        console.log('No matching stores found via Geoapify, falling back to mock data');
+        const mockStores = await this.getMockStores(latitude, longitude);
+        // Don't cache mock fallback data (we want to retry real API next time)
+        return mockStores;
+      }
+
       // Cache results
       cacheService.setStores(latitude, longitude, radius, stores);
 

@@ -44,23 +44,22 @@ class CacheService {
   }
 
   // Price cache methods
-  getPrice(storeName: string, itemName: string): number | null {
-    const key = this.getPriceKey(storeName, itemName);
+  getPrice(storeName: string, productId: number): number | null {
+    const key = this.getPriceKey(storeName, productId);
     const cached = this.priceCache.get<number>(key);
     return cached !== undefined ? cached : null;
   }
 
-  setPrice(storeName: string, itemName: string, price: number | null): void {
+  setPrice(storeName: string, productId: number, price: number | null): void {
     if (price === null) return; // Don't cache null prices
-    const key = this.getPriceKey(storeName, itemName);
+    const key = this.getPriceKey(storeName, productId);
     this.priceCache.set(key, price);
   }
 
-  private getPriceKey(storeName: string, itemName: string): string {
-    // Normalize keys to lowercase for consistent caching
+  private getPriceKey(storeName: string, productId: number): string {
+    // Normalize store name and use productId for stable cache keys
     const normalizedStore = storeName.toLowerCase().trim();
-    const normalizedItem = itemName.toLowerCase().trim();
-    return `price:${normalizedStore}:${normalizedItem}`;
+    return `price:${normalizedStore}:${productId}`;
   }
 
   // Utility methods

@@ -36,13 +36,14 @@ Keep the system **simple, readable, and explainable**.
 
 ---
 
-## Current Status (As of Phase 2 Completion)
+## Current Status (As of Phase 2.5 Completion)
 
-✅ Phase 1: Backend & Frontend Foundation — COMPLETE  
-✅ Phase 2: Store Discovery (Geoapify) — COMPLETE  
+✅ Phase 1: Backend & Frontend Foundation — COMPLETE
+✅ Phase 2: Store Discovery (Geoapify) — COMPLETE
+✅ Phase 2.5: Product Database & Autocomplete — COMPLETE
 ⏳ Phase 3: Price Scraping (Walmart, Target) — NEXT
 
-The app currently functions end-to-end using **mock price data** and **real store discovery** (Geoapify).
+The app currently functions end-to-end using **mock price data**, **real store discovery** (Geoapify), and **structured product data** from PostgreSQL.
 
 ---
 
@@ -51,6 +52,7 @@ The app currently functions end-to-end using **mock price data** and **real stor
 ### Frontend
 - React + TypeScript
 - Vite
+- Downshift for autocomplete
 - Geoapify API for geocoding (same key as backend)
 - Two location input modes:
   - **Precise location**: Browser `navigator.geolocation` with reverse geocoding to display city/state/zip
@@ -58,19 +60,24 @@ The app currently functions end-to-end using **mock price data** and **real stor
 - Simple UI:
   - Location mode selector (radio buttons)
   - Location display or zip code input
-  - Grocery list textarea
+  - **Product autocomplete** (searches database as user types)
+  - **Selected products list** (with quantity controls)
   - Compare button
   - Results cards sorted by cheapest
 
 ### Backend
 - Node.js + TypeScript
 - Express-style API
-- Single primary endpoint: `POST /compare`
+- PostgreSQL + Drizzle ORM
+- Primary endpoints:
+  - `POST /compare` - Compare prices across stores
+  - `GET /products/search` - Search product database
 - Responsibilities:
-  - Store discovery
-  - Price lookup
+  - Product database management
+  - Store discovery (Geoapify)
+  - Price lookup (currently mock)
   - Aggregation & ranking
-  - Caching
+  - Caching (productId-based)
   - Graceful fallbacks
 
 ### Shared Types
@@ -161,6 +168,140 @@ The frontend supports two ways for users to provide their location:
 
 ---
 
+## Product Database (Phase 2.5)
+
+### Database Setup
+
+The application uses **PostgreSQL** with **Drizzle ORM** for structured product data.
+
+**Database Configuration:**
+- Host/Port/Name/User/Password configured via `.env` (see `backend/.env`)
+- Connection pooling with `pg` (node-postgres)
+- Database name: `grocery_price_finder`
+- User: `grocery_user`
+
+### Schema
+
+**Products Table** (`backend/src/db/schema.ts`):
+```typescript
+{
+  id: serial (PRIMARY KEY)
+  name: varchar(255)           // Display name: "Whole Milk"
+  normalizedName: varchar(255) // Search key: "whole milk"
+  category: varchar(100)       // "Dairy", "Produce", etc.
+  brand: varchar(100)          // Optional
+  size: varchar(50)            // "1 gallon", "12 oz", etc.
+  unit: varchar(20)            // "gallon", "oz", "lb"
+  searchTerms: text            // Comma-separated for matching
+  isCommon: boolean            // Common items shown first
+  createdAt: timestamp
+  updatedAt: timestamp
+}
+```
+
+**Indexes:**
+- `idx_products_normalized_name` on `normalizedName`
+- `idx_products_category` on `category`
+- `idx_products_common` on `isCommon`
+
+### Seeded Data
+
+The database is seeded with **50 products** across 6 categories:
+- Dairy (10 items, 5 common)
+- Produce (12 items, 3 common)
+- Bakery (6 items, 2 common)
+- Meat (8 items, 2 common)
+- Pantry (10 items, 2 common)
+- Beverages (4 items, 1 common)
+
+**Seed Script:** `backend/src/db/seed.ts`
+
+### Product Service
+
+**Location:** `backend/src/services/productService.ts`
+
+Key methods:
+- `searchProducts(query, limit)` - Search by name or search terms
+- `getProductById(id)` - Fetch single product
+- `getProductsByIds(ids)` - Batch fetch (returns Map)
+
+**Search Behavior:**
+- Empty query → returns common products only
+- Query provided → searches `normalizedName` and `searchTerms`
+- Results sorted by `isCommon DESC, normalizedName ASC`
+
+### API Endpoints
+
+**GET /products/search**
+```
+Query params:
+  - q: search query (optional, empty = common products)
+  - limit: max results (1-100, default 10)
+
+Response:
+{
+  "products": [
+    {
+      "id": 1,
+      "name": "Whole Milk",
+      "category": "Dairy",
+      "size": "1 gallon",
+      "unit": "gallon",
+      "displayName": "Whole Milk (1 gallon)"
+    }
+  ]
+}
+```
+
+### Frontend Integration
+
+**Components:**
+- `ProductAutocomplete` - Downshift-powered search with debouncing
+- `SelectedProductsList` - Shows selected items with quantity controls
+
+**User Flow:**
+1. User types in autocomplete (e.g., "milk")
+2. Frontend calls `/products/search?q=milk`
+3. User selects product from dropdown
+4. Product added to list with quantity=1
+5. User can adjust quantity or remove items
+6. On compare, frontend sends `productId` and `quantity` to backend
+
+### Cache Updates
+
+**Important:** Price caching now uses `productId` instead of item name.
+
+**Before (Phase 1-2):**
+```typescript
+cacheService.getPrice(storeName, itemName)
+```
+
+**After (Phase 2.5):**
+```typescript
+cacheService.getPrice(storeName, productId)
+```
+
+This provides stable cache keys since product IDs never change, unlike names which can vary.
+
+### Database Maintenance
+
+**Migrations:** Handled by Drizzle Kit
+- Config: `backend/drizzle.config.ts`
+- Migrations: `backend/drizzle/`
+- Run migrations: `npx drizzle-kit push` (or generate with `drizzle-kit generate`)
+
+**Adding Products:**
+- Update `backend/src/db/seed.ts` and re-run seed script
+- Or use ProductService methods to insert programmatically
+
+Claude should **not** suggest adding:
+- ❌ Price history tables (not needed for MVP)
+- ❌ Store-specific product mappings (Phase 3 concern)
+- ❌ User-generated product lists (no auth in MVP)
+- ❌ Product images (nice-to-have, not essential)
+
+---
+
 ## Price Scraping (Phase 3 Guidelines)
 
 Target stores:
@@ -168,36 +309,65 @@ Target stores:
 - Target
 
 Rules Claude must follow:
-- ✅ Cache aggressively
+- ✅ Cache aggressively (now uses productId-based keys)
 - ✅ Prefer Cheerio over headless browsers
 - ❌ No Puppeteer unless scraping fails completely
 - ❌ No large crawl loops
 
 Scrapers must:
-- Fetch a search page
+- Fetch a search page using `product.normalizedName`
 - Extract the *first reasonable match*
-- Document selectors with “last verified” notes
+- Document selectors with "last verified" notes
 
 ---
 
 ## API Contract
 
 ### POST /compare
+
+**Request:**
 ```json
 {
   "latitude": number,
   "longitude": number,
   "items": [
-    { "name": "milk", "quantity": 1 },
-    { "name": "eggs", "quantity": 2 }
+    { "productId": 1, "quantity": 1 },
+    { "productId": 4, "quantity": 2 }
   ]
 }
 ```
 
-Response:
+**Response:**
+```json
+{
+  "stores": [
+    {
+      "id": "walmart-1",
+      "name": "Walmart Supercenter",
+      "address": "123 Main St",
+      "distance": 1500,
+      "items": [
+        {
+          "itemName": "Whole Milk",
+          "price": 4.99,
+          "currency": "USD",
+          "isMockData": true
+        }
+      ],
+      "total": 12.99,
+      "usedMockData": true,
+      "mockDataReason": "Scraper not yet implemented"
+    }
+  ],
+  "timestamp": "2025-12-06T18:00:00.000Z"
+}
+```
+
+**Key Points:**
 - Stores sorted by total price (cheapest first)
-- Per-item prices
-- Mock data flags clearly visible
+- Backend fetches product details from database using productIds
+- Per-item prices with mock data flags
+- `usedMockData` and `mockDataReason` for transparency
 
 Claude **must not break this contract**.
 
@@ -259,4 +429,4 @@ Always choose **simple & correct**.
 
 ---
 
-_Last updated: 2025‑11‑30_
+_Last updated: 2025‑12‑06 (Phase 2.5: Product Database Integration)_

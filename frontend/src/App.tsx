@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import type { GroceryItem, StoreWithPrices } from '@grocery-price-finder/types';
+import type { StoreWithPrices, ProductSearchResult } from '@grocery-price-finder/types';
 import { compareStores } from './api/compare';
 import { reverseGeocode, geocodeZipCode } from './api/geocoding';
+import { ProductAutocomplete } from './components/ProductAutocomplete';
+import { SelectedProductsList, type SelectedProduct } from './components/SelectedProductsList';
 import './App.css';
 
 type LocationMode = 'precise' | 'zipcode';
@@ -13,7 +15,7 @@ function App() {
   const [longitude, setLongitude] = useState<string>('');
   const [locationDisplay, setLocationDisplay] = useState<string>(''); // City, State ZIP
   const [zipCode, setZipCode] = useState<string>('');
-  const [groceryList, setGroceryList] = useState<string>('milk\neggs\nbread');
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [results, setResults] = useState<StoreWithPrices[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,22 +59,35 @@ function App() {
     );
   };
 
-  // Parse grocery list from textarea (one item per line)
-  const parseGroceryList = (): GroceryItem[] => {
-    return groceryList
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => {
-        // Support format: "item" or "item x quantity"
-        const match = line.match(/^(.+?)\s*(?:x\s*(\d+))?$/i);
-        if (match) {
-          const name = match[1].trim();
-          const quantity = match[2] ? parseInt(match[2], 10) : 1;
-          return { name, quantity };
-        }
-        return { name: line, quantity: 1 };
-      });
+  // Handle product selection from autocomplete
+  const handleProductSelect = (product: ProductSearchResult) => {
+    // Check if product already exists in the list
+    const existing = selectedProducts.find(p => p.product.id === product.id);
+    if (existing) {
+      // If exists, increment quantity
+      setSelectedProducts(selectedProducts.map(p =>
+        p.product.id === product.id
+          ? { ...p, quantity: p.quantity + 1 }
+          : p
+      ));
+    } else {
+      // If new, add to list
+      setSelectedProducts([...selectedProducts, { product, quantity: 1 }]);
+    }
+  };
+
+  // Handle quantity change
+  const handleQuantityChange = (productId: number, quantity: number) => {
+    setSelectedProducts(selectedProducts.map(p =>
+      p.product.id === productId
+        ? { ...p, quantity }
+        : p
+    ));
+  };
+
+  // Handle product removal
+  const handleRemoveProduct = (productId: number) => {
+    setSelectedProducts(selectedProducts.filter(p => p.product.id !== productId));
   };
 
   // Compare prices
@@ -113,9 +128,9 @@ function App() {
       }
     }
 
-    const items = parseGroceryList();
-    if (items.length === 0) {
-      setError('Please enter at least one grocery item');
+    // Check if we have products
+    if (selectedProducts.length === 0) {
+      setError('Please add at least one product to your grocery list');
       setLoading(false);
       return;
     }
@@ -123,6 +138,12 @@ function App() {
     setLoading(true);
 
     try {
+      // Convert selected products to API format
+      const items = selectedProducts.map(sp => ({
+        productId: sp.product.id,
+        quantity: sp.quantity,
+      }));
+
       const response = await compareStores({
         latitude: lat,
         longitude: lng,
@@ -224,12 +245,14 @@ function App() {
         {/* Grocery List Input */}
         <section className="input-section">
           <h2>Grocery List</h2>
-          <p className="hint">Enter one item per line. Format: "item" or "item x quantity"</p>
-          <textarea
-            value={groceryList}
-            onChange={(e) => setGroceryList(e.target.value)}
-            rows={8}
-            placeholder="milk&#10;eggs x 2&#10;bread"
+          <ProductAutocomplete
+            onProductSelect={handleProductSelect}
+            placeholder="Search for products (e.g., milk, eggs, bread)..."
+          />
+          <SelectedProductsList
+            products={selectedProducts}
+            onQuantityChange={handleQuantityChange}
+            onRemove={handleRemoveProduct}
           />
         </section>
 
@@ -290,18 +313,24 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {store.items.map((item, itemIndex) => (
-                      <tr key={itemIndex}>
-                        <td>{item.itemName}</td>
-                        <td>
-                          {parseGroceryList().find(i => i.name === item.itemName)?.quantity || 1}
-                        </td>
-                        <td>
-                          {formatPrice(item.price)}
-                          {item.isMockData && <span className="mock-badge">demo</span>}
-                        </td>
-                      </tr>
-                    ))}
+                    {store.items.map((item, itemIndex) => {
+                      // Find the quantity from selected products
+                      const selectedProduct = selectedProducts.find(
+                        sp => sp.product.name === item.itemName
+                      );
+                      const quantity = selectedProduct?.quantity || 1;
+
+                      return (
+                        <tr key={itemIndex}>
+                          <td>{item.itemName}</td>
+                          <td>{quantity}</td>
+                          <td>
+                            {formatPrice(item.price)}
+                            {item.isMockData && <span className="mock-badge">demo</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -312,7 +341,7 @@ function App() {
 
       <footer>
         <p>
-          Phase 1 MVP • Using {results.length > 0 && results[0].usedMockData ? 'demo' : 'real'} data
+          Phase 2.5 MVP • Product Database • Using {results.length > 0 && results[0].usedMockData ? 'demo' : 'real'} data
         </p>
       </footer>
     </div>

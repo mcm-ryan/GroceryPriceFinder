@@ -1,0 +1,146 @@
+.selected-products-list {
+  margin: 1.5rem 0;
+}
+
+.selected-products-list h3 {
+  margin-bottom: 1rem;
+  color: #2d3748;
+  font-size: 1.125rem;
+}
+
+.selected-products-empty {
+  padding: 2rem;
+  text-align: center;
+  background: #f7fafc;
+  border-radius: 8px;
+  color: #718096;
+  border: 2px dashed #cbd5e0;
+}
+
+.products-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.product-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  transition: box-shadow 0.2s;
+}
+
+.product-item:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.product-name {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.product-category {
+  font-size: 0.875rem;
+  color: #718096;
+}
+
+.product-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #edf2f7;
+  border-radius: 6px;
+  padding: 0.25rem;
+}
+
+.quantity-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.125rem;
+  color: #4299e1;
+  font-weight: bold;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-btn:hover {
+  background: #e6f2ff;
+}
+
+.quantity-btn:active {
+  background: #bee3f8;
+}
+
+.quantity-input {
+  width: 3rem;
+  text-align: center;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  padding: 0.25rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.quantity-input::-webkit-inner-spin-button,
+.quantity-input::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.remove-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: #fed7d7;
+  color: #e53e3e;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.125rem;
+  font-weight: bold;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-btn:hover {
+  background: #fc8181;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .product-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .product-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

@@ -77,20 +77,57 @@ app.post('/compare', async (req: Request, res: Response<CompareResponse | ErrorR
       return;
     }
 
+    // Validate item structure
+    for (const item of items) {
+      if (typeof item.productId !== 'number' || typeof item.quantity !== 'number') {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'Each item must have productId (number) and quantity (number)',
+        });
+        return;
+      }
+    }
+
     console.log(`Comparing prices for ${items.length} items at location (${latitude}, ${longitude})`);
 
-    // Step 1: Find nearby stores
+    // Step 1: Fetch product details from database
+    const productIds = items.map(item => item.productId);
+    const productsMap = await productService.getProductsByIds(productIds);
+
+    // Validate that all products exist
+    const missingIds = productIds.filter(id => !productsMap.has(id));
+    if (missingIds.length > 0) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: `Products not found: ${missingIds.join(', ')}`,
+      });
+      return;
+    }
+
+    // Convert to GroceryItem format with product metadata
+    const groceryItems = items.map(item => {
+      const product = productsMap.get(item.productId)!;
+      return {
+        productId: product.id,
+        name: product.name,
+        normalizedName: product.normalizedName,
+        category: product.category,
+        quantity: item.quantity,
+      };
+    });
+
+    // Step 2: Find nearby stores
     const stores = await storeDiscoveryService.findNearbyStores(latitude, longitude);
     console.log(`Found ${stores.length} nearby stores`);
 
-    // Step 2: Get prices and aggregate results
-    const storesWithPrices = await aggregationService.compareStores(stores, items);
+    // Step 3: Get prices and aggregate results
+    const storesWithPrices = await aggregationService.compareStores(stores, groceryItems);
 
-    // Step 3: Log stats
+    // Step 4: Log stats
     const stats = aggregationService.getStats(storesWithPrices);
     console.log('Comparison stats:', stats);
 
-    // Step 4: Return results
+    // Step 5: Return results
     const response: CompareResponse = {
       stores: storesWithPrices,
       timestamp: new Date().toISOString(),
