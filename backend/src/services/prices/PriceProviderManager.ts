@@ -80,7 +80,7 @@ export class PriceProviderManager {
       const prices = await provider.getPrices(items);
 
       // Cache successful results
-      this.cachePrices(storeName, prices);
+      this.cachePrices(storeName, items, prices);
 
       // Check if we got mock data
       const isMock = provider.name === 'MockProvider';
@@ -132,7 +132,7 @@ export class PriceProviderManager {
     const cachedPrices: ItemPrice[] = [];
 
     for (const item of items) {
-      const cachedPrice = cacheService.getPrice(storeName, item.name);
+      const cachedPrice = cacheService.getPrice(storeName, item.productId);
       if (cachedPrice !== null) {
         cachedPrices.push({
           itemName: item.name,
@@ -149,10 +149,13 @@ export class PriceProviderManager {
   /**
    * Cache prices for future requests
    */
-  private cachePrices(storeName: string, prices: ItemPrice[]): void {
-    for (const priceData of prices) {
+  private cachePrices(storeName: string, items: GroceryItem[], prices: ItemPrice[]): void {
+    // Map prices back to items by index to get productId
+    for (let i = 0; i < prices.length && i < items.length; i++) {
+      const priceData = prices[i];
+      const item = items[i];
       if (priceData.price !== null && !priceData.isMockData) {
-        cacheService.setPrice(storeName, priceData.itemName, priceData.price);
+        cacheService.setPrice(storeName, item.productId, priceData.price);
       }
     }
   }

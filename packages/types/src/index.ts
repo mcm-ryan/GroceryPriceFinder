@@ -1,6 +1,40 @@
-// Grocery item
-export interface GroceryItem {
+// Product database schema
+export interface Product {
+  id: number;
   name: string;
+  normalizedName: string;
+  category: string;
+  brand?: string;
+  size?: string;
+  unit?: string;
+  searchTerms?: string;
+  isCommon?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// Product search result (what the API returns)
+export interface ProductSearchResult {
+  id: number;
+  name: string;
+  category: string;
+  brand?: string;
+  size?: string;
+  unit?: string;
+  displayName: string; // Formatted for display: "Whole Milk (1 gal)"
+}
+
+// Product search response
+export interface ProductSearchResponse {
+  products: ProductSearchResult[];
+}
+
+// Grocery item (with product metadata)
+export interface GroceryItem {
+  productId: number;      // REQUIRED
+  name: string;           // For display/logging
+  normalizedName: string; // For price provider matching
+  category: string;       // For future filtering
   quantity: number;
 }
 
@@ -40,7 +74,10 @@ export interface StoreWithPrices extends Store {
 export interface CompareRequest {
   latitude: number;
   longitude: number;
-  items: GroceryItem[];
+  items: Array<{
+    productId: number;
+    quantity: number;
+  }>;
 }
 
 export interface CompareResponse {
