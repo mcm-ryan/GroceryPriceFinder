@@ -4,15 +4,15 @@ services:
     container_name: grocery-price-finder-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: grocery_price_finder
-      POSTGRES_USER: grocery_user
-      POSTGRES_PASSWORD: 8e6b324ce5674cbba80555a40f0da2fe
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5444:5432"
+      - "${DB_PORT}:${POSTGRES_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data:z
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U grocery_user -d grocery_price_finder"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,18 +22,18 @@ services:
     container_name: grocery-price-finder-drizzle-studio
     restart: unless-stopped
     working_dir: /app
-    command: sh -c "npm install && npx drizzle-kit studio --host 0.0.0.0 --port 4983 --config /app/drizzle.config.ts"
+    command: sh -c "npm install && npx drizzle-kit studio --host 0.0.0.0 --port ${DRIZZLE_STUDIO_PORT} --config /app/drizzle.config.ts"
     ports:
-      - "4983:4983"
+      - "${DRIZZLE_STUDIO_PORT}:${DRIZZLE_STUDIO_PORT}"
     volumes:
       - ./backend:/app:z
     environment:
       DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: grocery_price_finder
-      DB_USER: grocery_user
-      DB_PASSWORD: 8e6b324ce5674cbba80555a40f0da2fe
-      DB_SSL: false
+      DB_PORT: ${POSTGRES_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL: ${DB_SSL}
     depends_on:
       postgres:
         condition: service_healthy
