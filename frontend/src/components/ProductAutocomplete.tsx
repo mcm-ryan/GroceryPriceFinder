@@ -64,6 +64,7 @@ export function ProductAutocomplete({ onProductSelect, placeholder }: ProductAut
     highlightedIndex,
     getItemProps,
     selectedItem,
+    reset,
   } = useCombobox({
     items,
     inputValue,
@@ -73,10 +74,30 @@ export function ProductAutocomplete({ onProductSelect, placeholder }: ProductAut
     onSelectedItemChange: ({ selectedItem }) => {
       if (selectedItem) {
         onProductSelect(selectedItem);
-        setInputValue(''); // Clear input after selection
+        // Reset the combobox state and clear input
+        setTimeout(() => {
+          reset();
+          setInputValue('');
+        }, 0);
       }
     },
     itemToString: (item) => (item ? item.displayName : ''),
+    // Prevent the input from being populated with the selected item
+    stateReducer: (_, actionAndChanges) => {
+      const { type, changes } = actionAndChanges;
+
+      switch (type) {
+        case useCombobox.stateChangeTypes.ItemClick:
+        case useCombobox.stateChangeTypes.InputKeyDownEnter:
+          return {
+            ...changes,
+            inputValue: '', // Keep input empty after selection
+            isOpen: false,  // Close the menu
+          };
+        default:
+          return changes;
+      }
+    },
   });
 
   return (
